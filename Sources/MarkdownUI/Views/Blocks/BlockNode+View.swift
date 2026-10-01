@@ -40,9 +40,11 @@ private struct HighlightAnchorModifier: ViewModifier {
   let block: BlockNode
 
   func body(content: Content) -> some View {
-    content.background {
+    // A marker of no height on the block's top edge, so that a scroll anchor names where
+    // the block starts whatever its height.
+    content.background(alignment: .top) {
       if let highlightAnchor, let highlightedBlock, highlightedBlock == self.block {
-        Color.clear.id(highlightAnchor)
+        Color.clear.frame(height: 0).id(highlightAnchor)
       }
     }
   }

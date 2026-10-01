@@ -89,8 +89,8 @@ extension View {
   ///
   /// The first paragraph, heading, code block, or table — in document order, including those
   /// nested in lists and blockquotes — that contains an occurrence of the query set with
-  /// ``SwiftUI/View/markdownHighlight(_:background:foreground:)`` carries `id`, so that a
-  /// `ScrollViewReader` can scroll to it.
+  /// ``SwiftUI/View/markdownHighlight(_:background:foreground:)`` carries `id` on its top
+  /// edge, so that a `ScrollViewReader` can scroll to where it starts.
   ///
   /// - Parameter id: The identifier of the block, or `nil` to identify none.
   public func markdownHighlightAnchor<ID: Hashable>(_ id: ID?) -> some View {
