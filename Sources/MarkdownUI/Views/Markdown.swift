@@ -191,6 +191,8 @@ import SwiftUI
 public struct Markdown: View {
   @Environment(\.colorScheme) private var colorScheme
   @Environment(\.theme.text) private var text
+  @Environment(\.markdownHighlight) private var highlight
+  @Environment(\.markdownHighlightAnchor) private var highlightAnchor
 
   private let content: MarkdownContent
   private let baseURL: URL?
@@ -219,6 +221,12 @@ public struct Markdown: View {
     .textStyle(self.text)
     .environment(\.baseURL, self.baseURL)
     .environment(\.imageBaseURL, self.imageBaseURL)
+    .environment(\.highlightedBlock, self.highlightedBlock)
+  }
+
+  private var highlightedBlock: BlockNode? {
+    guard self.highlightAnchor != nil, let highlight else { return nil }
+    return self.blocks.firstBlock(matching: highlight)
   }
 
   private var blocks: [BlockNode] {

@@ -10,6 +10,29 @@ public protocol CodeSyntaxHighlighter {
   ///   - code: The code block.
   ///   - language: The language of the code block.
   func highlightCode(_ code: String, language: String?) -> Text
+
+  /// Returns a text view configured with the syntax highlighted code, with every occurrence
+  /// of a highlighted query marked.
+  ///
+  /// Called instead of ``highlightCode(_:language:)`` for a code block that contains an
+  /// occurrence of the query set with the `markdownHighlight(_:background:foreground:)`
+  /// modifier. Use ``MarkdownHighlight/apply(to:)`` to mark the occurrences. The default
+  /// implementation returns the code unmarked.
+  /// - Parameters:
+  ///   - code: The code block.
+  ///   - language: The language of the code block.
+  ///   - highlight: The highlight to apply.
+  func highlightCode(_ code: String, language: String?, highlight: MarkdownHighlight) -> Text
+}
+
+extension CodeSyntaxHighlighter {
+  public func highlightCode(
+    _ code: String,
+    language: String?,
+    highlight: MarkdownHighlight
+  ) -> Text {
+    self.highlightCode(code, language: language)
+  }
 }
 
 /// A code syntax highlighter that returns unstyled code blocks.
@@ -19,6 +42,14 @@ public struct PlainTextCodeSyntaxHighlighter: CodeSyntaxHighlighter {
 
   public func highlightCode(_ code: String, language: String?) -> Text {
     Text(code)
+  }
+
+  public func highlightCode(
+    _ code: String,
+    language: String?,
+    highlight: MarkdownHighlight
+  ) -> Text {
+    Text(highlight.apply(to: AttributedString(code)))
   }
 }
 

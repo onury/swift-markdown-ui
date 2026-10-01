@@ -3,6 +3,7 @@ import SwiftUI
 struct CodeBlockView: View {
   @Environment(\.theme.codeBlock) private var codeBlock
   @Environment(\.codeSyntaxHighlighter) private var codeSyntaxHighlighter
+  @Environment(\.markdownHighlight) private var highlight
 
   private let fenceInfo: String?
   private let content: String
@@ -23,8 +24,19 @@ struct CodeBlockView: View {
   }
 
   private var label: some View {
-    self.codeSyntaxHighlighter.highlightCode(self.content, language: self.fenceInfo)
+    self.highlightedCode
       .textStyleFont()
       .textStyleForegroundColor()
+  }
+
+  private var highlightedCode: Text {
+    if let highlight, highlight.matches(self.content) {
+      return self.codeSyntaxHighlighter.highlightCode(
+        self.content,
+        language: self.fenceInfo,
+        highlight: highlight
+      )
+    }
+    return self.codeSyntaxHighlighter.highlightCode(self.content, language: self.fenceInfo)
   }
 }

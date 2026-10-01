@@ -2,6 +2,10 @@ import SwiftUI
 
 extension BlockNode: View {
   var body: some View {
+    self.content.modifier(HighlightAnchorModifier(block: self))
+  }
+
+  @ViewBuilder private var content: some View {
     switch self {
     case .blockquote(let children):
       BlockquoteView(children: children)
@@ -25,6 +29,21 @@ extension BlockNode: View {
       }
     case .thematicBreak:
       ThematicBreakView()
+    }
+  }
+}
+
+private struct HighlightAnchorModifier: ViewModifier {
+  @Environment(\.highlightedBlock) private var highlightedBlock
+  @Environment(\.markdownHighlightAnchor) private var highlightAnchor
+
+  let block: BlockNode
+
+  func body(content: Content) -> some View {
+    content.background {
+      if let highlightAnchor, let highlightedBlock, highlightedBlock == self.block {
+        Color.clear.id(highlightAnchor)
+      }
     }
   }
 }
