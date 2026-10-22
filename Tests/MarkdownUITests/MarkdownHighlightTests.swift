@@ -163,4 +163,26 @@ final class MarkdownHighlightTests: XCTestCase {
     XCTAssertNil(content.blocks.block(holding: 4, of: self.highlight))
     XCTAssertNil(content.blocks.block(holding: -1, of: self.highlight))
   }
+
+  func testIdenticalBlocksAreToldApartByTheirPlace() {
+    // given
+    let owed = MarkdownHighlight(query: "owed", background: .yellow, foreground: .black)!
+    let content = MarkdownContent(
+      """
+      # Debts
+
+      - Owed: tests
+      - Owed: tests
+
+      > - Owed: tests
+      """
+    )
+
+    // then: the same block three times, each its own leaf
+    let targets = (0..<3).map { content.blocks.block(holding: $0, of: owed) }
+    XCTAssertEqual(targets.map(\.?.leaf), [1, 2, 3])
+    XCTAssertEqual(targets.map(\.?.occurrence), [0, 0, 0])
+    XCTAssertEqual(targets[0]?.block, targets[1]?.block)
+    XCTAssertEqual(4, content.blocks.reduce(0) { $0 + $1.highlightLeafCount })
+  }
 }

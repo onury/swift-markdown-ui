@@ -8,6 +8,7 @@ where
 {
   @Environment(\.multilineTextAlignment) private var textAlignment
   @Environment(\.tightSpacingEnabled) private var tightSpacingEnabled
+  @Environment(\.highlightedLeaf) private var highlightedLeaf
 
   @State private var blockMargins: [Int: BlockMargin] = [:]
 
@@ -23,15 +24,32 @@ where
   }
 
   var body: some View {
+    let leafOffsets = self.highlightLeafOffsets
     VStack(alignment: self.textAlignment.alignment.horizontal, spacing: 0) {
       ForEach(self.data, id: \.self) { element in
         self.content(element.index, element.value)
+          .transformEnvironment(\.highlightLeafOrdinal) { ordinal in
+            if let leafOffsets { ordinal += leafOffsets[element.index] }
+          }
           .onPreferenceChange(BlockMarginsPreference.self) { value in
             self.blockMargins[element.hashValue] = value
           }
           .padding(.top, self.topPaddingLength(for: element))
       }
     }
+  }
+
+  /// The number of leaf blocks before each element, so that a highlighted leaf block can
+  /// tell itself from an identical one; worked out only while a highlight anchor names one.
+  private var highlightLeafOffsets: [Int]? {
+    guard self.highlightedLeaf != nil else { return nil }
+    var offsets: [Int] = []
+    var total = 0
+    for element in self.data {
+      offsets.append(total)
+      total += (element.value as? HighlightLeaves)?.highlightLeafCount ?? 0
+    }
+    return offsets
   }
 
   private func topPaddingLength(for element: Indexed<Data.Element>) -> CGFloat? {

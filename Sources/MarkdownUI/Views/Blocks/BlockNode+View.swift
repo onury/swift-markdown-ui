@@ -34,15 +34,19 @@ extension BlockNode: View {
 }
 
 private struct HighlightAnchorModifier: ViewModifier {
-  @Environment(\.highlightedBlock) private var highlightedBlock
+  @Environment(\.highlightedLeaf) private var highlightedLeaf
+  @Environment(\.highlightLeafOrdinal) private var leafOrdinal
   @Environment(\.highlightedBlockOccurrence) private var highlightedOccurrence
   @Environment(\.markdownHighlightAnchor) private var highlightAnchor
   @Environment(\.markdownHighlight) private var highlight
 
   let block: BlockNode
 
+  /// Whether this is the leaf block that holds the anchored occurrence: told by its place
+  /// among the leaf blocks, so that an identical block elsewhere is not taken for it.
   private var isHighlighted: Bool {
-    self.highlightAnchor != nil && self.highlightedBlock == self.block
+    self.highlightAnchor != nil && self.block.isHighlightLeaf
+      && self.highlightedLeaf == self.leafOrdinal
   }
 
   /// The highlight with the anchored occurrence drawn apart, in the block that holds it. A
@@ -62,7 +66,10 @@ private struct HighlightAnchorModifier: ViewModifier {
       .environment(\.markdownHighlight, self.blockHighlight)
       .background(alignment: .top) {
         if let highlightAnchor, self.isHighlighted {
-          Color.clear.frame(height: 0).id(highlightAnchor)
+          Color.clear
+            .frame(height: 0)
+            .id(highlightAnchor)
+            .anchorPreference(key: HighlightAnchorMarkerKey.self, value: .bounds) { [$0] }
         }
       }
   }

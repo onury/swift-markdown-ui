@@ -213,8 +213,10 @@ public struct Markdown: View {
   }
 
   public var body: some View {
-    TextStyleAttributesReader { attributes in
-      BlockSequence(self.blocks)
+    let blocks = self.blocks
+    let highlighted = self.highlighted(in: blocks)
+    return TextStyleAttributesReader { attributes in
+      BlockSequence(blocks)
         .foregroundColor(attributes.foregroundColor)
         .background(attributes.backgroundColor)
         .modifier(ScaledFontSizeModifier(attributes.fontProperties?.size))
@@ -222,13 +224,14 @@ public struct Markdown: View {
     .textStyle(self.text)
     .environment(\.baseURL, self.baseURL)
     .environment(\.imageBaseURL, self.imageBaseURL)
-    .environment(\.highlightedBlock, self.highlighted?.block)
-    .environment(\.highlightedBlockOccurrence, self.highlighted?.occurrence ?? 0)
+    .environment(\.highlightLeafOrdinal, 0)
+    .environment(\.highlightedLeaf, highlighted?.leaf)
+    .environment(\.highlightedBlockOccurrence, highlighted?.occurrence ?? 0)
   }
 
-  private var highlighted: (block: BlockNode, occurrence: Int)? {
+  private func highlighted(in blocks: [BlockNode]) -> HighlightTarget? {
     guard self.highlightAnchor != nil, let highlight else { return nil }
-    return self.blocks.block(holding: self.highlightOccurrence, of: highlight)
+    return blocks.block(holding: self.highlightOccurrence, of: highlight)
   }
 
   private var blocks: [BlockNode] {

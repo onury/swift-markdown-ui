@@ -161,12 +161,21 @@ extension EnvironmentValues {
     set { self[MarkdownHighlightOccurrenceKey.self] = newValue }
   }
 
-  var highlightedBlock: BlockNode? {
-    get { self[HighlightedBlockKey.self] }
-    set { self[HighlightedBlockKey.self] = newValue }
+  /// The ordinal, among the leaf blocks of a ``Markdown`` view in document order, of the leaf
+  /// block that holds the occurrence the anchor names.
+  var highlightedLeaf: Int? {
+    get { self[HighlightedLeafKey.self] }
+    set { self[HighlightedLeafKey.self] = newValue }
   }
 
-  /// The occurrence within ``highlightedBlock`` that the anchor names.
+  /// The ordinal of the first leaf block in the blocks below, which `BlockSequence` moves on
+  /// for each block it lays out, so that a leaf block finds its own.
+  var highlightLeafOrdinal: Int {
+    get { self[HighlightLeafOrdinalKey.self] }
+    set { self[HighlightLeafOrdinalKey.self] = newValue }
+  }
+
+  /// The occurrence within the highlighted leaf block that the anchor names.
   var highlightedBlockOccurrence: Int {
     get { self[HighlightedBlockOccurrenceKey.self] }
     set { self[HighlightedBlockOccurrenceKey.self] = newValue }
@@ -189,6 +198,10 @@ private struct MarkdownHighlightAnchorKey: EnvironmentKey {
   static let defaultValue: AnyHashable? = nil
 }
 
-private struct HighlightedBlockKey: EnvironmentKey {
-  static let defaultValue: BlockNode? = nil
+private struct HighlightedLeafKey: EnvironmentKey {
+  static let defaultValue: Int? = nil
+}
+
+private struct HighlightLeafOrdinalKey: EnvironmentKey {
+  static let defaultValue = 0
 }
