@@ -49,12 +49,9 @@ private struct HighlightAnchorModifier: ViewModifier {
       && self.highlightedLeaf == self.leafOrdinal
   }
 
-  /// The highlight with the anchored occurrence drawn apart, in the block that holds it. A
-  /// table applies the highlight once per cell, where the number would name an occurrence
-  /// in every cell, so a table keeps the plain highlight.
+  /// The highlight with the anchored occurrence drawn apart, in the block that holds it.
   private var blockHighlight: MarkdownHighlight? {
     guard self.isHighlighted, var highlight = self.highlight else { return self.highlight }
-    if case .table = self.block { return highlight }
     highlight.current = self.highlightedOccurrence
     return highlight
   }

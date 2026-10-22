@@ -194,6 +194,7 @@ public struct Markdown: View {
   @Environment(\.markdownHighlight) private var highlight
   @Environment(\.markdownHighlightAnchor) private var highlightAnchor
   @Environment(\.markdownHighlightOccurrence) private var highlightOccurrence
+  @Environment(\.softBreakMode) private var softBreakMode
 
   private let content: MarkdownContent
   private let baseURL: URL?
@@ -231,7 +232,8 @@ public struct Markdown: View {
 
   private func highlighted(in blocks: [BlockNode]) -> HighlightTarget? {
     guard self.highlightAnchor != nil, let highlight else { return nil }
-    return blocks.block(holding: self.highlightOccurrence, of: highlight)
+    return blocks.block(
+      holding: self.highlightOccurrence, of: highlight, softBreakMode: self.softBreakMode)
   }
 
   private var blocks: [BlockNode] {

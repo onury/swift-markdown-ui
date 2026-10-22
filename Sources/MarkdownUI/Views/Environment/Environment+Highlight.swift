@@ -17,8 +17,8 @@ public struct MarkdownHighlight: Hashable {
   public var currentBackground: Color?
   /// The foreground color of the current occurrence, or `nil` to draw it as the others.
   public var currentForeground: Color?
-  /// The occurrence drawn in the current colors, counted from zero in the text the highlight
-  /// is applied to. Set by the block that holds the current occurrence; `nil` elsewhere.
+  /// The occurrence drawn in the current colors, counted from zero across the block that
+  /// holds it, which sets it (a table renumbers it within each cell); `nil` elsewhere.
   var current: Int?
 
   /// Creates a highlight, or returns `nil` when the query is empty.

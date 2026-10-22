@@ -36,6 +36,9 @@ private struct TextInlineRenderer {
   // With a highlight, consecutive inlines are collected and highlighted together, so that
   // an occurrence spanning several inlines is highlighted whole.
   private var pendingText = AttributedString()
+  // The occurrences highlighted in the runs before the pending one, so that the current
+  // occurrence is numbered across the runs an image splits the text into.
+  private var occurrenceOffset = 0
 
   init(
     baseURL: URL?,
@@ -110,15 +113,19 @@ private struct TextInlineRenderer {
   }
 
   private mutating func renderImage(_ source: String) {
+    // An image splits the highlighted text whether it has loaded or not, so that the
+    // occurrences are the same before and after it loads, and the same as counted.
+    self.flushHighlightedText()
     if let image = self.images[source] {
-      self.flushHighlightedText()
       self.result = self.result + Text(image)
     }
   }
 
   mutating func flushHighlightedText() {
     guard let highlight = self.highlight, !self.pendingText.characters.isEmpty else { return }
-    self.result = self.result + highlight.mark(self.pendingText).textView
+    let marked = highlight.mark(self.pendingText, firstOccurrence: self.occurrenceOffset)
+    self.occurrenceOffset += marked.count
+    self.result = self.result + marked.textView
     self.pendingText = AttributedString()
   }
 

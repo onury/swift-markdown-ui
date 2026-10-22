@@ -64,6 +64,22 @@
       XCTAssertEqual(1, result.currentLines)
     }
 
+    func testAnchorMarksTheCellInATable() throws {
+      // given
+      let markdown = "| Drink | Note |\n| --- | --- |\n| Cafe | tea |\n"
+        + String(repeating: "| tea | tea |\n", count: 20)
+        + "| tea | the last cafe |"
+
+      // when
+      let first = try XCTUnwrap(self.layout(markdown, occurrence: 0).markers.first)
+      let result = self.layout(markdown, occurrence: 1)
+      let last = try XCTUnwrap(result.markers.first)
+
+      // then: the current occurrence is drawn apart in its cell and the anchor is on its row
+      XCTAssertEqual(1, result.currentLines)
+      XCTAssertGreaterThan(last.minY - first.minY, result.height * 0.8)
+    }
+
     func testIdenticalBlocksCarryOneAnchor() throws {
       // given
       let markdown = "- Owed: tests\n- Owed: tests"
@@ -83,6 +99,19 @@
       XCTAssertGreaterThan(secondTop, firstTop + 8)
     }
 
+    func testLoadedImageNumbersAcrossTheBlock() async throws {
+      // given: an image that loads at once, between the first and the second occurrence
+      let markdown = "A cafe ![](cup.png) then a cafe."
+
+      // when
+      let result = try await self.layoutLoadingImages(markdown, occurrence: 1)
+
+      // then: the second occurrence of the block is drawn apart, after the image
+      XCTAssertTrue(ImmediateImageProvider.loaded.value)
+      XCTAssertEqual(1, result.currentLines)
+      XCTAssertEqual(1, result.markers.count)
+    }
+
     // MARK: - Layout
 
     private struct Layout {
@@ -100,8 +129,24 @@
       highlight: MarkdownHighlight? = nil,
       occurrence: Int
     ) -> Layout {
-      let host = self.host(markdown, highlight: highlight, occurrence: occurrence)
+      let host = self.host(markdown, highlight: highlight, occurrence: occurrence, images: nil)
       host.layout()
+      return host.recorder.layout
+    }
+
+    private func layoutLoadingImages(_ markdown: String, occurrence: Int) async throws -> Layout {
+      ImmediateImageProvider.loaded.value = false
+      let host = self.host(markdown, highlight: nil, occurrence: occurrence, images: ImmediateImageProvider())
+      host.layout()
+      for _ in 0..<50 where !ImmediateImageProvider.loaded.value {
+        try await Task.sleep(nanoseconds: 20_000_000)
+        host.layout()
+      }
+      // A few passes more, for the loaded image to be drawn.
+      for _ in 0..<3 {
+        try await Task.sleep(nanoseconds: 20_000_000)
+        host.layout()
+      }
       return host.recorder.layout
     }
 
@@ -119,18 +164,22 @@
     private func host(
       _ markdown: String,
       highlight: MarkdownHighlight?,
-      occurrence: Int
+      occurrence: Int,
+      images: ImmediateImageProvider?
     ) -> Host {
       let highlight =
         highlight
         ?? MarkdownHighlight(query: "cafe", background: .yellow, foreground: .black)!
       let recorder = Recorder()
-      let view = AnyView(
+      var view = AnyView(
         Markdown(markdown)
           .markdownHighlight(
             highlight.query, background: .yellow, foreground: .black, currentBackground: .orange)
           .markdownHighlightAnchor("match", occurrence: occurrence)
       )
+      if let images {
+        view = AnyView(view.markdownInlineImageProvider(images))
+      }
       let root = view
         .frame(width: self.width)
         .fixedSize(horizontal: false, vertical: true)
@@ -148,6 +197,24 @@
       let hosting = NSHostingView(rootView: AnyView(root))
       hosting.frame = CGRect(x: 0, y: 0, width: self.width, height: 20_000)
       return Host(view: hosting, recorder: recorder)
+    }
+  }
+
+  /// An inline image provider that hands over a small image without loading anything.
+  private struct ImmediateImageProvider: InlineImageProvider {
+    final class Flag: @unchecked Sendable {
+      var value = false
+    }
+
+    static let loaded = Flag()
+
+    func image(with url: URL, label: String) async throws -> Image {
+      Self.loaded.value = true
+      return Image(nsImage: NSImage(size: CGSize(width: 12, height: 12), flipped: false) { rect in
+        NSColor.gray.setFill()
+        rect.fill()
+        return true
+      })
     }
   }
 #endif

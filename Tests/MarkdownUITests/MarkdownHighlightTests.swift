@@ -164,26 +164,71 @@ final class MarkdownHighlightTests: XCTestCase {
     XCTAssertNil(content.blocks.block(holding: -1, of: self.highlight))
   }
 
-  func testIdenticalBlocksAreToldApartByTheirPlace() {
-    // given
-    let owed = MarkdownHighlight(query: "owed", background: .yellow, foreground: .black)!
-    let content = MarkdownContent(
-      """
-      # Debts
+  func testImageAltTextIsNotCounted() {
+    // An inline image draws no text, so its alt text holds no occurrence.
+    XCTAssertEqual(1, MarkdownContent("A ![cafe](cup.png) and a cafe.").occurrences(of: self.highlight))
+    XCTAssertEqual(0, MarkdownContent("![cafe](cup.png)").occurrences(of: self.highlight))
+    XCTAssertEqual(1, MarkdownContent("[![cafe](cup.png)](https://cafe.example) cafe").occurrences(of: self.highlight))
 
-      - Owed: tests
-      - Owed: tests
+    // The occurrence after the image is the block's first.
+    let content = MarkdownContent("A ![cafe](cup.png) and a cafe.")
+    XCTAssertEqual(content.blocks.block(holding: 0, of: self.highlight)?.occurrence, 0)
+    XCTAssertNil(content.blocks.block(holding: 1, of: self.highlight))
+  }
 
-      > - Owed: tests
-      """
+  func testLineBreakTagIsNotCounted() {
+    let br = MarkdownHighlight(query: "br", background: .yellow, foreground: .black)!
+
+    // `<br>` is drawn as a line break, so only the drawn "br" counts.
+    XCTAssertEqual(1, MarkdownContent("cafe<br>br").occurrences(of: br))
+    XCTAssertEqual(1, MarkdownContent("*cafe<br>br*").occurrences(of: br))
+    // Another tag is drawn as its text: "<abbr>" and "</abbr>" both hold one.
+    XCTAssertEqual(2, MarkdownContent("a <abbr>cafe</abbr>").occurrences(of: br))
+  }
+
+  func testWhitespaceDroppedAfterALineBreakIsNotCounted() {
+    let spaced = MarkdownHighlight(query: " cafe", background: .yellow, foreground: .black)!
+
+    // The renderer drops the whitespace after `<br>`, so " cafe" is not drawn there.
+    XCTAssertEqual(0, MarkdownContent("tea<br> cafe").occurrences(of: spaced))
+    XCTAssertEqual(1, MarkdownContent("tea cafe").occurrences(of: spaced))
+
+    // A soft break is a space, or a line break in the line break mode.
+    XCTAssertEqual(1, MarkdownContent("tea\ncafe").occurrences(of: spaced))
+    XCTAssertEqual(0, MarkdownContent("tea\ncafe").occurrences(of: spaced, softBreakMode: .lineBreak))
+  }
+
+  func testImageSplitsTheCount() {
+    // The text is highlighted on either side of an image apart, loaded or not, so an
+    // occurrence across an image is not one.
+    XCTAssertEqual(0, MarkdownContent("ca![](cup.png)fe").occurrences(of: self.highlight))
+    XCTAssertEqual(
+      ["A cafe ", " then cafe"],
+      MarkdownContent("A cafe ![](cup.png) then cafe").blocks.first.flatMap {
+        guard case .paragraph(let inlines) = $0 else { return nil }
+        return inlines.highlightTexts(softBreakMode: .space)
+      }
     )
+  }
 
-    // then: the same block three times, each its own leaf
-    let targets = (0..<3).map { content.blocks.block(holding: $0, of: owed) }
-    XCTAssertEqual(targets.map(\.?.leaf), [1, 2, 3])
-    XCTAssertEqual(targets.map(\.?.occurrence), [0, 0, 0])
-    XCTAssertEqual(targets[0]?.block, targets[1]?.block)
-    XCTAssertEqual(4, content.blocks.reduce(0) { $0 + $1.highlightLeafCount })
+  func testMarkNumbersAcrossTheParts() {
+    // given
+    var highlight = MarkdownHighlight(
+      query: "cafe", background: .yellow, foreground: .black, currentBackground: .orange
+    )!
+    highlight.current = 1
+
+    // when: the text an image splits into two runs, highlighted one after the other
+    let first = highlight.mark(AttributedString("A cafe "), firstOccurrence: 0)
+    let second = highlight.mark(AttributedString(" then cafe and cafe"), firstOccurrence: first.count)
+
+    // then: the current occurrence is the second of the block, the first of the second run
+    XCTAssertEqual(1, first.count)
+    XCTAssertNil(first.current)
+    XCTAssertEqual(2, second.count)
+    let current = try? XCTUnwrap(second.current)
+    XCTAssertEqual(current.map { String(second.text[$0].characters) }, "cafe")
+    XCTAssertEqual(current.map { second.text.characters.distance(from: second.text.startIndex, to: $0.lowerBound) }, 6)
   }
 
   func testApplyAfterWideCharacters() {
@@ -207,5 +252,37 @@ final class MarkdownHighlightTests: XCTestCase {
     XCTAssertEqual(self.highlight.range(ofOccurrence: 2, in: text).map { String(text[$0]) }, "café")
     XCTAssertNil(self.highlight.range(ofOccurrence: 3, in: text))
     XCTAssertNil(self.highlight.range(ofOccurrence: -1, in: text))
+  }
+
+  func testIdenticalBlocksAreToldApartByTheirPlace() {
+    // given
+    let owed = MarkdownHighlight(query: "owed", background: .yellow, foreground: .black)!
+    let content = MarkdownContent(
+      """
+      # Debts
+
+      - Owed: tests
+      - Owed: tests
+
+      > - Owed: tests
+      """
+    )
+
+    // then: the same block three times, each its own leaf
+    let targets = (0..<3).map { content.blocks.block(holding: $0, of: owed) }
+    XCTAssertEqual(targets.map(\.?.leaf), [1, 2, 3])
+    XCTAssertEqual(targets.map(\.?.occurrence), [0, 0, 0])
+    XCTAssertEqual(targets[0]?.block, targets[1]?.block)
+    XCTAssertEqual(4, content.blocks.reduce(0) { $0 + $1.highlightLeafCount })
+  }
+
+  func testTableCellsCountInRowOrder() {
+    let content = MarkdownContent("| Cafe | x |\n| --- | --- |\n| cafe cafe | ![cafe](cup.png) |")
+    guard case .table(_, let rows) = content.blocks.first else { return XCTFail("not a table") }
+    XCTAssertEqual(
+      rows.flatMap(\.cells).map { $0.highlightCount(of: self.highlight, softBreakMode: .space) },
+      [1, 0, 2, 0]
+    )
+    XCTAssertEqual(3, content.occurrences(of: self.highlight))
   }
 }
