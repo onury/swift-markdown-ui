@@ -185,4 +185,20 @@ final class MarkdownHighlightTests: XCTestCase {
     XCTAssertEqual(targets[0]?.block, targets[1]?.block)
     XCTAssertEqual(4, content.blocks.reduce(0) { $0 + $1.highlightLeafCount })
   }
+
+  func testApplyAfterWideCharacters() {
+    // The occurrences are found in one walk, so each one's place has to survive the
+    // characters before it: emoji, combining marks, and runs of other attributes.
+    var attributedString = AttributedString("👍🏽 e\u{301}")
+    attributedString.inlinePresentationIntent = .stronglyEmphasized
+    attributedString += AttributedString(" Café 🇹🇷 cafe" + String(repeating: " ünïcode cafe", count: 200))
+
+    let result = self.highlight.apply(to: attributedString)
+
+    let marked = result.runs
+      .filter { $0.backgroundColor == .yellow }
+      .map { String(result[$0.range].characters) }
+    XCTAssertEqual(["Café", "cafe"] + Array(repeating: "cafe", count: 200), marked)
+    XCTAssertEqual(String(attributedString.characters), String(result.characters))
+  }
 }

@@ -42,7 +42,10 @@ public struct MarkdownHighlight: Hashable {
   public func count<S: StringProtocol>(in text: S) -> Int {
     var count = 0
     var start = text.startIndex
-    while start < text.endIndex, let range = text[start...].range(of: self.query, options: Self.options) {
+    while start < text.endIndex,
+      let range = text.range(of: self.query, options: Self.options, range: start..<text.endIndex),
+      !range.isEmpty
+    {
       count += 1
       start = range.upperBound
     }
@@ -59,35 +62,61 @@ public struct MarkdownHighlight: Hashable {
   /// Custom code syntax highlighters can use this method to highlight the occurrences in
   /// the code blocks they style.
   public func apply(to attributedString: AttributedString) -> AttributedString {
-    var result = attributedString
-    var offsets: [(start: Int, count: Int)] = []
-    var start = result.startIndex
+    self.mark(attributedString).text
+  }
 
-    while start < result.endIndex,
-      let range = result[start...].range(of: self.query, options: Self.options)
+  /// Highlights every occurrence of the query in `attributedString`, numbering them from
+  /// `firstOccurrence`, so that a run highlighted in parts numbers its occurrences across
+  /// the parts.
+  func mark(_ attributedString: AttributedString, firstOccurrence: Int = 0) -> Marked {
+    // One walk from the start: the string is searched from the end of the previous
+    // occurrence, and the attributed string's index is moved on by the same distance.
+    let string = String(attributedString.characters)
+    var ranges: [Range<AttributedString.Index>] = []
+    var start = string.startIndex
+    var lower = attributedString.startIndex
+
+    while start < string.endIndex,
+      let range = string.range(of: self.query, options: Self.options, range: start..<string.endIndex),
+      !range.isEmpty
     {
-      offsets.append(
-        (
-          result.characters.distance(from: result.startIndex, to: range.lowerBound),
-          result.characters.distance(from: range.lowerBound, to: range.upperBound)
-        )
-      )
+      let matchLower = attributedString.characters.index(
+        lower, offsetBy: string.distance(from: start, to: range.lowerBound))
+      let matchUpper = attributedString.characters.index(
+        matchLower, offsetBy: string.distance(from: range.lowerBound, to: range.upperBound))
+      ranges.append(matchLower..<matchUpper)
       start = range.upperBound
+      lower = matchUpper
     }
 
-    // Indices are recomputed after each change, as mutating an attributed string can
-    // invalidate the indices taken before it.
-    for (index, offset) in offsets.enumerated() {
-      let lower = result.characters.index(result.startIndex, offsetBy: offset.start)
-      let upper = result.characters.index(lower, offsetBy: offset.count)
-      let isCurrent = index == self.current
-      result[lower..<upper].backgroundColor =
-        isCurrent ? (self.currentBackground ?? self.background) : self.background
-      result[lower..<upper].foregroundColor =
-        isCurrent ? (self.currentForeground ?? self.foreground) : self.foreground
+    var result = attributedString
+    var current: Range<AttributedString.Index>?
+    var plain = AttributeContainer()
+    plain.backgroundColor = self.background
+    plain.foregroundColor = self.foreground
+    var drawnApart = AttributeContainer()
+    drawnApart.backgroundColor = self.currentBackground ?? self.background
+    drawnApart.foregroundColor = self.currentForeground ?? self.foreground
+
+    // Setting attributes leaves the characters, and so the indices taken above, as they are.
+    for (index, range) in ranges.enumerated() {
+      if firstOccurrence + index == self.current {
+        result[range].mergeAttributes(drawnApart)
+        current = range
+      } else {
+        result[range].mergeAttributes(plain)
+      }
     }
 
-    return result
+    return Marked(text: result, current: current, count: ranges.count)
+  }
+
+  /// A highlighted run: its text, the range of the current occurrence when it holds it, and
+  /// the number of occurrences in it.
+  struct Marked {
+    var text: AttributedString
+    var current: Range<AttributedString.Index>?
+    var count: Int
   }
 
   private static let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
