@@ -52,6 +52,22 @@ public struct MarkdownHighlight: Hashable {
     return count
   }
 
+  /// The range of the given occurrence of the query in `text`, counted from zero.
+  func range(ofOccurrence occurrence: Int, in text: String) -> Range<String.Index>? {
+    guard occurrence >= 0 else { return nil }
+    var remaining = occurrence
+    var start = text.startIndex
+    while start < text.endIndex,
+      let range = text.range(of: self.query, options: Self.options, range: start..<text.endIndex),
+      !range.isEmpty
+    {
+      if remaining == 0 { return range }
+      remaining -= 1
+      start = range.upperBound
+    }
+    return nil
+  }
+
   /// Returns whether `text` contains an occurrence of the query.
   public func matches<S: StringProtocol>(_ text: S) -> Bool {
     text.range(of: self.query, options: Self.options) != nil
@@ -117,6 +133,16 @@ public struct MarkdownHighlight: Hashable {
     var text: AttributedString
     var current: Range<AttributedString.Index>?
     var count: Int
+
+    /// The run as a text view, with the current occurrence marked by
+    /// ``HighlightCurrentOccurrence``, so that its line can be found in the text's layout.
+    var textView: Text {
+      guard let current else { return Text(self.text) }
+      guard #available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *) else { return Text(self.text) }
+      return Text(AttributedString(self.text[..<current.lowerBound]))
+        + Text(AttributedString(self.text[current])).customAttribute(HighlightCurrentOccurrence())
+        + Text(AttributedString(self.text[current.upperBound...]))
+    }
   }
 
   private static let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
@@ -160,9 +186,10 @@ extension View {
   /// The paragraph, heading, code block, or table — in document order, including those
   /// nested in lists and blockquotes — that contains the given occurrence of the query set
   /// with ``SwiftUI/View/markdownHighlight(_:background:foreground:currentBackground:currentForeground:)``
-  /// carries `id` on its top edge, so that a `ScrollViewReader` can scroll to where it
-  /// starts, and that occurrence is drawn in the highlight's current colors (in a table, the
-  /// block is identified but no occurrence is drawn apart).
+  /// carries `id` on the top edge of the line that holds the occurrence, so that a
+  /// `ScrollViewReader` can scroll to it however tall the block, and that occurrence is drawn
+  /// in the highlight's current colors. Before iOS 17 and macOS 14, `id` sits on the block's
+  /// top edge.
   ///
   /// - Parameters:
   ///   - id: The identifier of the block, or `nil` to identify none.
@@ -234,3 +261,8 @@ private struct HighlightedLeafKey: EnvironmentKey {
 private struct HighlightLeafOrdinalKey: EnvironmentKey {
   static let defaultValue = 0
 }
+
+/// Marks the current occurrence in a text view, so that its line can be found in the text's
+/// layout.
+@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+struct HighlightCurrentOccurrence: TextAttribute {}

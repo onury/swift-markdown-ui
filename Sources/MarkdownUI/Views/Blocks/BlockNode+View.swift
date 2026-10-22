@@ -60,16 +60,20 @@ private struct HighlightAnchorModifier: ViewModifier {
   }
 
   func body(content: Content) -> some View {
-    // A marker of no height on the block's top edge, so that a scroll anchor names where
-    // the block starts whatever its height.
+    // A marker of no height on the top edge of the line that holds the occurrence, as the
+    // text view drawing it reports it, so that a scroll anchor names that line however
+    // tall the block; on the block's top edge when no line is reported.
     content
       .environment(\.markdownHighlight, self.blockHighlight)
-      .background(alignment: .top) {
+      .backgroundPreferenceValue(HighlightCurrentLineKey.self) { lines in
         if let highlightAnchor, self.isHighlighted {
-          Color.clear
-            .frame(height: 0)
-            .id(highlightAnchor)
-            .anchorPreference(key: HighlightAnchorMarkerKey.self, value: .bounds) { [$0] }
+          GeometryReader { proxy in
+            Color.clear
+              .frame(height: 0)
+              .id(highlightAnchor)
+              .anchorPreference(key: HighlightAnchorMarkerKey.self, value: .bounds) { [$0] }
+              .padding(.top, lines.first.map { max(0, proxy[$0].y) } ?? 0)
+          }
         }
       }
   }

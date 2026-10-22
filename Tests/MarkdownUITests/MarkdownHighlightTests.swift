@@ -201,4 +201,11 @@ final class MarkdownHighlightTests: XCTestCase {
     XCTAssertEqual(["Café", "cafe"] + Array(repeating: "cafe", count: 200), marked)
     XCTAssertEqual(String(attributedString.characters), String(result.characters))
   }
+
+  func testRangeOfOccurrence() {
+    let text = "Cafe, cafe\nand café"
+    XCTAssertEqual(self.highlight.range(ofOccurrence: 2, in: text).map { String(text[$0]) }, "café")
+    XCTAssertNil(self.highlight.range(ofOccurrence: 3, in: text))
+    XCTAssertNil(self.highlight.range(ofOccurrence: -1, in: text))
+  }
 }

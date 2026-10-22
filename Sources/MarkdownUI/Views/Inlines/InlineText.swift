@@ -32,6 +32,7 @@ struct InlineText: View {
         attributes: attributes,
         highlight: self.highlight
       )
+      .reportingHighlightLine(self.highlight?.current != nil ? .marked : nil)
     }
     .task(id: self.inlines) {
       self.inlineImages = (try? await self.loadInlineImages()) ?? [:]

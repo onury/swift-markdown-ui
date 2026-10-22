@@ -27,6 +27,7 @@ struct CodeBlockView: View {
     self.highlightedCode
       .textStyleFont()
       .textStyleForegroundColor()
+      .reportingHighlightLine(self.highlight.flatMap { HighlightLineLocator(occurrenceOf: $0, in: self.content) })
   }
 
   private var highlightedCode: Text {

@@ -118,7 +118,7 @@ private struct TextInlineRenderer {
 
   mutating func flushHighlightedText() {
     guard let highlight = self.highlight, !self.pendingText.characters.isEmpty else { return }
-    self.result = self.result + Text(highlight.apply(to: self.pendingText))
+    self.result = self.result + highlight.mark(self.pendingText).textView
     self.pendingText = AttributedString()
   }
 
