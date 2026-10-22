@@ -35,17 +35,35 @@ extension BlockNode: View {
 
 private struct HighlightAnchorModifier: ViewModifier {
   @Environment(\.highlightedBlock) private var highlightedBlock
+  @Environment(\.highlightedBlockOccurrence) private var highlightedOccurrence
   @Environment(\.markdownHighlightAnchor) private var highlightAnchor
+  @Environment(\.markdownHighlight) private var highlight
 
   let block: BlockNode
+
+  private var isHighlighted: Bool {
+    self.highlightAnchor != nil && self.highlightedBlock == self.block
+  }
+
+  /// The highlight with the anchored occurrence drawn apart, in the block that holds it. A
+  /// table applies the highlight once per cell, where the number would name an occurrence
+  /// in every cell, so a table keeps the plain highlight.
+  private var blockHighlight: MarkdownHighlight? {
+    guard self.isHighlighted, var highlight = self.highlight else { return self.highlight }
+    if case .table = self.block { return highlight }
+    highlight.current = self.highlightedOccurrence
+    return highlight
+  }
 
   func body(content: Content) -> some View {
     // A marker of no height on the block's top edge, so that a scroll anchor names where
     // the block starts whatever its height.
-    content.background(alignment: .top) {
-      if let highlightAnchor, let highlightedBlock, highlightedBlock == self.block {
-        Color.clear.frame(height: 0).id(highlightAnchor)
+    content
+      .environment(\.markdownHighlight, self.blockHighlight)
+      .background(alignment: .top) {
+        if let highlightAnchor, self.isHighlighted {
+          Color.clear.frame(height: 0).id(highlightAnchor)
+        }
       }
-    }
   }
 }

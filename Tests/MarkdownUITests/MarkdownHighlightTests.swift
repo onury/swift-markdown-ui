@@ -88,4 +88,79 @@ final class MarkdownHighlightTests: XCTestCase {
 
     XCTAssertNil(MarkdownContent("Tea.").blocks.firstBlock(matching: self.highlight))
   }
+
+  func testCountMatchesApply() {
+    XCTAssertEqual(3, self.highlight.count(in: "Café, then cafe, then CAFÉ."))
+    XCTAssertEqual(0, self.highlight.count(in: "Nothing to see here."))
+    XCTAssertEqual(2, self.highlight.count(in: "cafecafe"))
+  }
+
+  func testApplyDrawsTheCurrentOccurrenceApart() {
+    // given
+    var highlight = MarkdownHighlight(
+      query: "cafe", background: .yellow, foreground: .black, currentBackground: .orange, currentForeground: .white
+    )!
+    highlight.current = 1
+
+    // when
+    let result = highlight.apply(to: AttributedString("Café, then cafe, then CAFÉ."))
+
+    // then
+    let current = result.runs
+      .filter { $0.backgroundColor == .orange && $0.foregroundColor == .white }
+      .map { String(result[$0.range].characters) }
+    let others = result.runs
+      .filter { $0.backgroundColor == .yellow }
+      .map { String(result[$0.range].characters) }
+    XCTAssertEqual(["cafe"], current)
+    XCTAssertEqual(["Café", "CAFÉ"], others)
+  }
+
+  func testOccurrencesAcrossBlocks() {
+    let content = MarkdownContent(
+      """
+      # Cafe
+
+      A cafe and a **café**.
+
+      - Cafe one
+      - Two
+
+      | Cafe | cafe |
+      | ---- | ---- |
+      | x    | cafe |
+
+      ```
+      cafe = 1
+      ```
+      """
+    )
+    XCTAssertEqual(8, content.occurrences(of: self.highlight))
+  }
+
+  func testBlockHoldingAnOccurrence() {
+    // given
+    let content = MarkdownContent(
+      """
+      # Cafe
+
+      A cafe and a **café**.
+
+      - Cafe one
+      """
+    )
+
+    // then
+    XCTAssertEqual(content.blocks.block(holding: 0, of: self.highlight)?.occurrence, 0)
+    XCTAssertEqual(content.blocks.block(holding: 0, of: self.highlight)?.block, .heading(level: 1, content: [.text("Cafe")]))
+    let second = content.blocks.block(holding: 2, of: self.highlight)
+    XCTAssertEqual(second?.occurrence, 1)
+    XCTAssertEqual(
+      second?.block,
+      .paragraph(content: [.text("A cafe and a "), .strong(children: [.text("café")]), .text(".")])
+    )
+    XCTAssertEqual(content.blocks.block(holding: 3, of: self.highlight)?.block, .paragraph(content: [.text("Cafe one")]))
+    XCTAssertNil(content.blocks.block(holding: 4, of: self.highlight))
+    XCTAssertNil(content.blocks.block(holding: -1, of: self.highlight))
+  }
 }

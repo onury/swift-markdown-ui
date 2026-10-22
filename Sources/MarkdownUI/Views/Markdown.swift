@@ -193,6 +193,7 @@ public struct Markdown: View {
   @Environment(\.theme.text) private var text
   @Environment(\.markdownHighlight) private var highlight
   @Environment(\.markdownHighlightAnchor) private var highlightAnchor
+  @Environment(\.markdownHighlightOccurrence) private var highlightOccurrence
 
   private let content: MarkdownContent
   private let baseURL: URL?
@@ -221,12 +222,13 @@ public struct Markdown: View {
     .textStyle(self.text)
     .environment(\.baseURL, self.baseURL)
     .environment(\.imageBaseURL, self.imageBaseURL)
-    .environment(\.highlightedBlock, self.highlightedBlock)
+    .environment(\.highlightedBlock, self.highlighted?.block)
+    .environment(\.highlightedBlockOccurrence, self.highlighted?.occurrence ?? 0)
   }
 
-  private var highlightedBlock: BlockNode? {
+  private var highlighted: (block: BlockNode, occurrence: Int)? {
     guard self.highlightAnchor != nil, let highlight else { return nil }
-    return self.blocks.firstBlock(matching: highlight)
+    return self.blocks.block(holding: self.highlightOccurrence, of: highlight)
   }
 
   private var blocks: [BlockNode] {
